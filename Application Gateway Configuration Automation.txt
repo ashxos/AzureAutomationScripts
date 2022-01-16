@@ -1,0 +1,40 @@
+# =============================================
+#                 AZ SCRIPT
+# =============================================
+$AppGatewayName = "YourApplicationGatewayName"
+$AppGatewayResourceGroup = "YourApplicationGatewayResourceGroup"
+$AppName = "YourAppName"
+$Environment = "DEV" # DEV / UAT / PROD
+$AppAzureURL = "Your_Website_Name.azurewebsites.net"
+$AppPublicURL = "Your_Subdomain.yourcompanyname.com"
+$SSL_Certificate = "Your_SSL_Certificate_Name"
+$AppEnvironment = $AppName + "-" + $Environment
+$AppEnvironmentHTTP = $AppName + "-" + $Environment + "-HTTP"
+$AppEnvironmentHTTPS = $AppName + "-" + $Environment + "-HTTPS"
+$AppEnvironmentHTTPToHTTPS = $AppName + "-" + $Environment + "-HTTP-To-HTTPS"
+
+# 1. Add Backend Pool
+az network application-gateway address-pool create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName --name $AppAndEnvironment --servers $AppAzureURL
+# 2. Add HTTP Settings
+az network application-gateway http-settings create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName --name $AppAndEnvironment --port 443 --protocol Https --host-name-from-backend-pool true --enable-probe false --cookie-based-affinity Disabled --timeout 40 
+# 3. Add Listener
+az network application-gateway http-listener create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName --frontend-port port_80 -n $AppEnvironmentHTTP --frontend-ip appGwPublicFrontendIp --host-name $AppPublicURL 
+az network application-gateway http-listener create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName --frontend-port port_443 -n $AppEnvironmentHTTPS --frontend-ip appGwPublicFrontendIp --host-name $AppPublicURL --ssl-cert $SSL_Certificate
+# 4. Add Rules
+az network application-gateway rule create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName -n $AppEnvironmentHTTPS --http-listener $AppEnvironmentHTTPS --rule-type Basic --address-pool $AppAndEnvironment --http-settings $AppAndEnvironment
+# 5. Add Redirect Config
+az network application-gateway redirect-config create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName -n $AppEnvironmentHTTPToHTTPS --type Permanent --include-path true --include-query-string true --target-listener $AppEnvironmentHTTPS
+# 6. Add HTTP to HTTPS Redirect Rule
+az network application-gateway rule create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName -n $AppEnvironmentHTTPToHTTPS --http-listener $AppEnvironmentHTTP --rule-type Basic --redirect-config $AppEnvironmentHTTPToHTTPS
+# 7. Add Probe
+az network application-gateway probe create -g $AppGatewayResourceGroup --gateway-name $AppGatewayName -n $AppAndEnvironment --protocol https --host-name-from-http-settings true --path /
+# 8. Map Probe to HTTP Setting
+az network application-gateway http-settings update -g $AppGatewayResourceGroup --gateway-name $AppGatewayName -n $AppAndEnvironment --probe $AppAndEnvironment
+
+
+
+
+
+
+
+
